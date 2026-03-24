@@ -1,0 +1,46 @@
+# muze
+
+> Free browser-based music studio. Play 15+ real instruments using your keyboard, record clips, layer them on a multitrack timeline, and export your composition — no download, no signup.
+
+## Product
+muze is a browser-based music composition studio at muze.ammarimtiaz.com. Users turn their physical keyboard into a musical instrument — the keyboard layout mirrors the instrument (strings, frets, keys, pads). It supports recording, a multitrack timeline composer, and audio export.
+
+## Instruments
+Piano, Guitar, Electric Guitar, Bass Guitar, Violin, Ukulele, Drums, Xylophone, Marimba, Flute, Saxophone, Trumpet, Organ, Harmonium, Tabla.
+
+## Pages
+- Homepage: https://muze.ammarimtiaz.com/
+- All Instruments: https://muze.ammarimtiaz.com/instruments
+- Piano: https://muze.ammarimtiaz.com/instruments/piano
+- Guitar: https://muze.ammarimtiaz.com/instruments/guitar
+- Drums: https://muze.ammarimtiaz.com/instruments/drums
+- Harmonium: https://muze.ammarimtiaz.com/instruments/harmonium
+- Tabla: https://muze.ammarimtiaz.com/instruments/tabla
+- Violin: https://muze.ammarimtiaz.com/instruments/violin
+- Flute: https://muze.ammarimtiaz.com/instruments/flute
+- Saxophone: https://muze.ammarimtiaz.com/instruments/saxophone
+- Trumpet: https://muze.ammarimtiaz.com/instruments/trumpet
+- Ukulele: https://muze.ammarimtiaz.com/instruments/ukulele
+- Bass Guitar: https://muze.ammarimtiaz.com/instruments/bass-guitar
+- Electric Guitar: https://muze.ammarimtiaz.com/instruments/electric-guitar
+- Organ: https://muze.ammarimtiaz.com/instruments/organ
+- Xylophone: https://muze.ammarimtiaz.com/instruments/xylophone
+- Marimba: https://muze.ammarimtiaz.com/instruments/marimba
+- Composer: https://muze.ammarimtiaz.com/composer
+- Learn: https://muze.ammarimtiaz.com/learn
+
+## Key Features
+- Play instruments with your physical keyboard — no mouse needed
+- Record clips from any instrument using your microphone
+- Multitrack timeline composer — layer clips, adjust timing, play all back simultaneously
+- Export individual clips as audio files
+- Projects system — create multiple named projects with separate clip sets
+- Beginner-friendly with always-visible key guides, but unobtrusive for pros
+- Supports Indian classical instruments (Harmonium, Tabla) with raga modes and taal patterns
+- Completely free, no account required, runs in any modern browser
+
+## Creator
+Built by Ammar Imtiaz — https://ammarimtiaz.com
+
+## Social
+- Website: https://ammarimtiaz.com
