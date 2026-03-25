@@ -1,6 +1,11 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import {
+  getAllProjects, getClipsByProject,
+  putProject, deleteProject as dbDeleteProject,
+  putClip, deleteClip, clearProjectClips,
+} from './db';
 
 export interface Clip {
   id: string;
@@ -25,7 +30,8 @@ interface SessionContextType {
   projects: Project[];
   activeProjectId: string;
   activeProject: Project;
-  clips: Clip[]; // shorthand for activeProject.clips
+  clips: Clip[];
+  dbLoaded: boolean;
   createProject: (name: string) => string;
   switchProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
@@ -43,16 +49,58 @@ export const CLIP_COLORS = [
 ];
 
 function makeProject(name: string): Project {
-  return { id: `proj-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, name, createdAt: Date.now(), clips: [] };
+  return { id: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name, createdAt: Date.now(), clips: [] };
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [projects, setProjects] = useState<Project[]>(() => [makeProject('My First Project')]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string>('');
+  const [dbLoaded, setDbLoaded] = useState(false);
 
-  // Set active to first project on mount
+  // Load from IndexedDB on mount
   useEffect(() => {
-    setProjects((prev) => { setActiveProjectId(prev[0].id); return prev; });
+    (async () => {
+      try {
+        const dbProjects = await getAllProjects();
+        if (dbProjects.length === 0) {
+          // First visit — create default project
+          const fresh = makeProject('My First Project');
+          await putProject({ id: fresh.id, name: fresh.name, createdAt: fresh.createdAt });
+          setProjects([fresh]);
+          setActiveProjectId(fresh.id);
+        } else {
+          // Hydrate projects + their clips
+          const loaded: Project[] = await Promise.all(
+            dbProjects.map(async (p) => {
+              const dbClips = await getClipsByProject(p.id);
+              const clips: Clip[] = dbClips.map((c) => ({
+                id: c.id,
+                instrumentSlug: c.instrumentSlug,
+                instrumentName: c.instrumentName,
+                instrumentEmoji: c.instrumentEmoji,
+                blob: c.blob,
+                url: URL.createObjectURL(c.blob),
+                duration: c.duration,
+                createdAt: c.createdAt,
+                color: c.color,
+              }));
+              return { id: p.id, name: p.name, createdAt: p.createdAt, clips };
+            })
+          );
+          // Sort by createdAt
+          loaded.sort((a, b) => a.createdAt - b.createdAt);
+          setProjects(loaded);
+          setActiveProjectId(loaded[0].id);
+        }
+      } catch (e) {
+        // IndexedDB unavailable (private browsing etc.) — fall back to in-memory
+        const fresh = makeProject('My First Project');
+        setProjects([fresh]);
+        setActiveProjectId(fresh.id);
+        console.warn('IndexedDB unavailable, using in-memory storage', e);
+      }
+      setDbLoaded(true);
+    })();
   }, []);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
@@ -62,13 +110,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const p = makeProject(name);
     setProjects((prev) => [...prev, p]);
     setActiveProjectId(p.id);
+    putProject({ id: p.id, name: p.name, createdAt: p.createdAt }).catch(console.error);
     return p.id;
   }, []);
 
   const switchProject = useCallback((id: string) => setActiveProjectId(id), []);
 
   const renameProject = useCallback((id: string, name: string) => {
-    setProjects((prev) => prev.map((p) => p.id === id ? { ...p, name } : p));
+    setProjects((prev) => {
+      const updated = prev.map((p) => p.id === id ? { ...p, name } : p);
+      const p = updated.find((p) => p.id === id);
+      if (p) putProject({ id: p.id, name: p.name, createdAt: p.createdAt }).catch(console.error);
+      return updated;
+    });
   }, []);
 
   const deleteProject = useCallback((id: string) => {
@@ -76,26 +130,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const remaining = prev.filter((p) => p.id !== id);
       if (remaining.length === 0) {
         const fresh = makeProject('New Project');
+        putProject({ id: fresh.id, name: fresh.name, createdAt: fresh.createdAt }).catch(console.error);
         setActiveProjectId(fresh.id);
         return [fresh];
       }
       if (id === activeProjectId) setActiveProjectId(remaining[0].id);
       return remaining;
     });
+    dbDeleteProject(id).catch(console.error);
   }, [activeProjectId]);
 
   const updateActiveClips = useCallback((fn: (clips: Clip[]) => Clip[]) => {
     setProjects((prev) =>
-      prev.map((p) =>
-        p.id === activeProjectId ? { ...p, clips: fn(p.clips) } : p
-      )
+      prev.map((p) => p.id === activeProjectId ? { ...p, clips: fn(p.clips) } : p)
     );
   }, [activeProjectId]);
 
   const addClip = useCallback((clip: Omit<Clip, 'id' | 'createdAt'>) => {
     const id = `clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    updateActiveClips((prev) => [...prev, { ...clip, id, createdAt: Date.now() }]);
-  }, [updateActiveClips]);
+    const createdAt = Date.now();
+    const newClip: Clip = { ...clip, id, createdAt };
+    updateActiveClips((prev) => [...prev, newClip]);
+    putClip({
+      id, projectId: activeProjectId,
+      instrumentSlug: clip.instrumentSlug,
+      instrumentName: clip.instrumentName,
+      instrumentEmoji: clip.instrumentEmoji,
+      blob: clip.blob, duration: clip.duration,
+      createdAt, color: clip.color,
+    }).catch(console.error);
+  }, [updateActiveClips, activeProjectId]);
 
   const removeClip = useCallback((id: string) => {
     updateActiveClips((prev) => {
@@ -103,16 +167,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (clip) URL.revokeObjectURL(clip.url);
       return prev.filter((c) => c.id !== id);
     });
+    deleteClip(id).catch(console.error);
   }, [updateActiveClips]);
 
   const clearClips = useCallback(() => {
     updateActiveClips((prev) => { prev.forEach((c) => URL.revokeObjectURL(c.url)); return []; });
-  }, [updateActiveClips]);
+    clearProjectClips(activeProjectId).catch(console.error);
+  }, [updateActiveClips, activeProjectId]);
 
   return (
     <SessionContext.Provider value={{
-      projects, activeProjectId: activeProject?.id ?? '', activeProject: activeProject ?? projects[0],
-      clips, createProject, switchProject, renameProject, deleteProject,
+      projects, activeProjectId: activeProject?.id ?? '',
+      activeProject: activeProject ?? projects[0],
+      clips, dbLoaded,
+      createProject, switchProject, renameProject, deleteProject,
       addClip, removeClip, clearClips,
     }}>
       {children}
