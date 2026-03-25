@@ -1,27 +1,20 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { getEngine } from './audioEngine';
 
 export function useRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
   const startTimeRef = useRef<number>(0);
 
   const startRecording = useCallback(async (): Promise<boolean> => {
     try {
-      // Use AudioContext destination capture via getUserMedia as fallback
-      // Primary: capture system audio output via AudioContext
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          sampleRate: 44100,
-        },
-      });
+      const engine = getEngine();
+      if (!engine) return false;
 
-      streamRef.current = stream;
+      const stream = engine.recordDest.stream;
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
@@ -29,7 +22,6 @@ export function useRecorder() {
       });
 
       chunksRef.current = [];
-
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
@@ -56,7 +48,6 @@ export function useRecorder() {
 
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        streamRef.current?.getTracks().forEach((t) => t.stop());
         setIsRecording(false);
         resolve({ blob, duration });
       };

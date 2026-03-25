@@ -5,6 +5,7 @@ import type { Instrument } from '@/lib/instruments';
 import RecordBar from './RecordBar';
 import LiveKeyboard, { KeyInfo } from './LiveKeyboard';
 import { useKeyboard } from '@/lib/useKeyboard';
+import { getEngine } from '@/lib/audioEngine';
 
 // Q row left→right = drum kit laid out like a real kit
 const PADS = [
@@ -41,8 +42,9 @@ export default function Drums({ instrument }: { instrument: Instrument }) {
     let cancelled = false;
     (async () => {
       const SF = (await import('soundfont-player')).default;
-      const ac = new AudioContext();
-      const p = await SF.instrument(ac,'synth_drum' as never);
+      const engine = getEngine();
+      if (!engine) return;
+      const p = await SF.instrument(engine.ac, 'synth_drum' as never, { destination: engine.masterBus } as never);
       if (!cancelled) { playerRef.current = p as never; setLoaded(true); }
     })();
     return () => { cancelled = true; };

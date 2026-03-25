@@ -5,6 +5,7 @@ import type { Instrument } from '@/lib/instruments';
 import RecordBar from './RecordBar';
 import LiveKeyboard, { KeyInfo } from './LiveKeyboard';
 import { useKeyboard } from '@/lib/useKeyboard';
+import { getEngine } from '@/lib/audioEngine';
 
 interface Player { play: (n:string,t?:number,o?:Record<string,unknown>)=>void }
 
@@ -69,8 +70,9 @@ export default function Guitar({ instrument }: { instrument: Instrument }) {
     let cancelled = false;
     (async () => {
       const SF = (await import('soundfont-player')).default;
-      const ac = new AudioContext();
-      const p = await SF.instrument(ac,'acoustic_guitar_nylon' as never);
+      const engine = getEngine();
+      if (!engine) return;
+      const p = await SF.instrument(engine.ac, 'acoustic_guitar_nylon' as never, { destination: engine.masterBus } as never);
       if (!cancelled) { playerRef.current = p as unknown as Player; setLoaded(true); }
     })();
     return () => { cancelled = true; };
